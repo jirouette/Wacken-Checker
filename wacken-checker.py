@@ -24,9 +24,9 @@ def monitorPool(pool: str):
         raise Exception(f"unknown pool {pool}")
     endpoint = 'https://www.strasbourg.eu/lieu/-/entity/sig/' + POOLS[pool]
     while True:
-        html = requests.get(endpoint, headers={'User-Agent': "jr's Wacken Checker https://github.com/jirouette/wacken-checker"})
+        html = requests.get(endpoint, headers={'User-Agent': "jr's Wacken Checker https://github.com/jirouette/wacken-checker"}).text
         try:
-            amount = html.text.split('<div class="crowded-amount')[1].split('>')[1].split('</div')[0].strip()
+            amount = html.split('<div class="crowded-amount')[1].split('>')[1].split('</div')[0].strip().replace('-', '0')
             now = datetime.datetime.now().isoformat()
             if os.environ.get('DEBUG', '0') == '1':
                 print(now, amount)
