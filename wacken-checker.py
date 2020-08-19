@@ -19,17 +19,51 @@ POOLS = {
     'wacken': '408_SPO_9'
 }
 
+HEADERS = {
+    'User-Agent': "jr's Wacken Checker https://github.com/jirouette/wacken-checker"
+}
+
+def triggerWebhook(pool, amount, thresold, lastReports):
+    endpoint = os.environ.get('DISCORD_ENDPOINT')
+    if not endpoint:
+        return
+    reports = "\n".join([f"**{x['date']}:** {x['amount']} _({x['level']})_" for x in lastReports])
+    payload = {
+        'embeds': [
+            {
+                'title': f"Currently {amount} persons are in {pool}",
+                'description': f"Thresold: {thresold}\nOther reports\n"+reports
+            }
+        ]
+    }
+    x = requests.post(endpoint, json=payload, headers=HEADERS)
+    print(x.text)
+
 def monitorPool(pool: str):
     if pool not in POOLS.keys():
         raise Exception(f"unknown pool {pool}")
     endpoint = 'https://www.strasbourg.eu/lieu/-/entity/sig/' + POOLS[pool]
+    thresold = int(os.environ.get('THRESHOLD', 100))
+    passedThresold = None
+    lastReports = []
     while True:
-        html = requests.get(endpoint, headers={'User-Agent': "jr's Wacken Checker https://github.com/jirouette/wacken-checker"}).text
+        html = requests.get(endpoint, headers=HEADERS).text
         try:
             chunk = html.split('<div class="crowded-amount')[1]
-            amount = chunk.split('>')[1].split('</div')[0].strip().replace('-', '0')
+            amount = int(chunk.split('>')[1].split('</div')[0].strip().replace('-', '0'))
             level = chunk.split('"')[0].strip()
             now = datetime.datetime.now()
+            if passedThresold is None:
+                passedThresold = amount < thresold
+            if amount < thresold and not passedThresold:
+                passedThresold = True
+                triggerWebhook(pool, amount, thresold, lastReports)
+            elif amount > thresold and passedThresold:
+                passedThresold = False
+
+            lastReports.append(dict(date=now, amount=amount, level=level))
+            if (len(lastReports) > 5):
+                lastReports.pop(0)
             if os.environ.get('DEBUG', '0') == '1':
                 print(now, amount, level)
             filename = "reports/"+os.environ.get('FILENAME', f"{pool}-report-{now.strftime('%Y-%m-%d')}.csv")

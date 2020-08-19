@@ -36,8 +36,5 @@ You can also define the following environment vars:
 - `FILENAME` : define the file where the results will be saved. Default : `{pool}-report.csv` were pool is the codename of the selected pool
 - `POOL` : define the selected pool (will be overrided by the first argument if it exists)
 - `FREQUENCY` : frequency of the monitoring, in seconds. Default : 300sec (5min).
-
-## Next steps
-
-- Add Docker support
-- Add notifications integrations (Discord, Mattermost, ...)
+- `THRESHOLD` : minimum amount to trigger a notification (falling edge behavior)
+- `DISCORD_ENDPOINT` : URL of the Discord webhook to send a notification (if empty, no notification will be sent)
