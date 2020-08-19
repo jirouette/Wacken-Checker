@@ -26,16 +26,18 @@ def monitorPool(pool: str):
     while True:
         html = requests.get(endpoint, headers={'User-Agent': "jr's Wacken Checker https://github.com/jirouette/wacken-checker"}).text
         try:
-            amount = html.split('<div class="crowded-amount')[1].split('>')[1].split('</div')[0].strip().replace('-', '0')
-            now = datetime.datetime.now().isoformat()
+            chunk = html.split('<div class="crowded-amount')[1]
+            amount = chunk.split('>')[1].split('</div')[0].strip().replace('-', '0')
+            level = chunk.split('"')[0].strip()
+            now = datetime.datetime.now()
             if os.environ.get('DEBUG', '0') == '1':
-                print(now, amount)
-            filename = os.environ.get('FILENAME', pool+'-report.csv')
+                print(now, amount, level)
+            filename = os.environ.get('FILENAME', f"{pool}-report-{now.strftime('%Y-%m-%d')}.csv")
             exists = os.path.isfile(filename)
             with open(filename, 'a') as f:
                 if not exists:
-                    f.write("date,amount\n")
-                f.write(now+','+amount+"\n")
+                    f.write("date,amount,level\n")
+                f.write(f"{now.isoformat()},{amount},{level}\n")
         except KeyError:
             raise Exception('could not find amount, stopping here')
         time.sleep(int(os.environ.get('FREQUENCY', 300)))

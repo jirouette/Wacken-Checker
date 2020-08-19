@@ -31,5 +31,4 @@ You can also define the following environment vars:
 ## Next steps
 
 - Add Docker support
-- Add the level of the current amount (green, orange, red, black)
 - Add notifications integrations (Discord, Mattermost, ...)
