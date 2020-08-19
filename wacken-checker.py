@@ -32,7 +32,7 @@ def monitorPool(pool: str):
             now = datetime.datetime.now()
             if os.environ.get('DEBUG', '0') == '1':
                 print(now, amount, level)
-            filename = os.environ.get('FILENAME', f"{pool}-report-{now.strftime('%Y-%m-%d')}.csv")
+            filename = "reports/"+os.environ.get('FILENAME', f"{pool}-report-{now.strftime('%Y-%m-%d')}.csv")
             exists = os.path.isfile(filename)
             with open(filename, 'a') as f:
                 if not exists:

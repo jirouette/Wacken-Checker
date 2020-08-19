@@ -4,9 +4,18 @@ This project monitors how many people are currently in the swimming-pools of Str
 
 ## Installation
 
+### Using pip
+
 ```bash
 pip install
 python wacken-checker.py <pool> # e.g. 'schiltigheim'
+```
+
+### Using Docker
+
+```bash
+docker build -t wacken-checker .
+docker run -d -e POOL=wacken -v `pwd`/reports:/reports wacken-checker
 ```
 
 ## Usage
