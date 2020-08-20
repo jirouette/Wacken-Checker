@@ -27,12 +27,12 @@ def triggerWebhook(pool, amount, thresold, lastReports):
     endpoint = os.environ.get('DISCORD_ENDPOINT')
     if not endpoint:
         return
-    reports = "\n".join([f"**{x['date']}:** {x['amount']} _({x['level']})_" for x in lastReports])
+    reports = "\n".join([f"**{x['date']}:** {x['amount']} _({x['level']})_" for x in lastReports][::-1])
     payload = {
         'embeds': [
             {
                 'title': f"Currently {amount} persons are in {pool}",
-                'description': f"Thresold: {thresold}\nOther reports\n"+reports
+                'description': f"Threshold: {thresold}\nOther reports\n"+reports
             }
         ]
     }
