@@ -1,6 +1,7 @@
 #!/usr/bin/python
 #coding: utf8
 
+from typing import List, Tuple
 import requests
 import time
 import datetime
@@ -23,11 +24,20 @@ HEADERS = {
     'User-Agent': "jr's Wacken Checker https://github.com/jirouette/wacken-checker"
 }
 
-def triggerWebhook(pool, amount, thresold, lastReports):
+lastReports = []
+passedThreshold = False
+
+class Report(object):
+    def __init__(self, date: str, amount: int, level: str) -> None:
+        self.date = date
+        self.amount = amount
+        self.level = level
+
+def triggerWebhook(pool: str, amount: int, thresold: int, lastReports: List[Report]) -> None:
     endpoint = os.environ.get('DISCORD_ENDPOINT')
     if not endpoint:
         return
-    reports = "\n".join([f"**{x['date']}:** {x['amount']} _({x['level']})_" for x in lastReports][::-1])
+    reports = "\n".join([f"**{x.date}:** {x.amount} _({x.level})_" for x in lastReports][::-1])
     payload = {
         'embeds': [
             {
@@ -39,41 +49,61 @@ def triggerWebhook(pool, amount, thresold, lastReports):
     x = requests.post(endpoint, json=payload, headers=HEADERS)
     print(x.text)
 
-def monitorPool(pool: str):
+def checkThreshold(pool: str, report: Report):
+    global passedThreshold
+    global lastReports
+    threshold = int(os.environ.get('THRESHOLD', 100))
+    if passedThreshold is None:
+        passedThreshold = report.amount < threshold
+    if report.amount < threshold and not passedThreshold:
+        passedThreshold = True
+        triggerWebhook(pool, report.amount, threshold, lastReports)
+    elif report.amount > threshold and passedThreshold:
+        passedThreshold = False
+
+def fetchData(pool: str) -> Tuple[int, str]:
+    endpoint = 'https://www.strasbourg.eu/lieu/-/entity/sig/' + POOLS[pool]
+    html = requests.get(endpoint, headers=HEADERS).text
+    try:
+        chunk = html.split('<div class="crowded-amount')[1]
+        amount = int(chunk.split('>')[1].split('</div')[0].strip().replace('-', '0'))
+        level = chunk.split('"')[0].strip()
+        return amount, level
+    except KeyError:
+        raise Exception('could not find amount nor level, stopping here')
+
+def writeIntoCsv(pool: str, report: Report) -> None:
+    filename = "reports/"+os.environ.get('FILENAME', f"{pool}-report-{report.date.strftime('%Y-%m-%d')}.csv")
+    exists = os.path.isfile(filename)
+    with open(filename, 'a') as f:
+        if not exists:
+            f.write("date,amount,level\n")
+        f.write(f"{report.date.isoformat()},{report.amount},{report.level}\n")
+
+def monitorPool(pool: str) -> None:
+    global lastReports
     if pool not in POOLS.keys():
         raise Exception(f"unknown pool {pool}")
-    endpoint = 'https://www.strasbourg.eu/lieu/-/entity/sig/' + POOLS[pool]
-    thresold = int(os.environ.get('THRESHOLD', 100))
-    passedThresold = None
-    lastReports = []
     while True:
-        html = requests.get(endpoint, headers=HEADERS).text
-        try:
-            chunk = html.split('<div class="crowded-amount')[1]
-            amount = int(chunk.split('>')[1].split('</div')[0].strip().replace('-', '0'))
-            level = chunk.split('"')[0].strip()
-            now = datetime.datetime.now()
-            if passedThresold is None:
-                passedThresold = amount < thresold
-            if amount < thresold and not passedThresold:
-                passedThresold = True
-                triggerWebhook(pool, amount, thresold, lastReports)
-            elif amount > thresold and passedThresold:
-                passedThresold = False
+        # Fetching and preparing data
+        amount, level = fetchData(pool)
+        now = datetime.datetime.now()
+        report = Report(date=now, amount=amount, level=level)
 
-            lastReports.append(dict(date=now, amount=amount, level=level))
-            if (len(lastReports) > 5):
-                lastReports.pop(0)
-            if os.environ.get('DEBUG', '0') == '1':
-                print(now, amount, level)
-            filename = "reports/"+os.environ.get('FILENAME', f"{pool}-report-{now.strftime('%Y-%m-%d')}.csv")
-            exists = os.path.isfile(filename)
-            with open(filename, 'a') as f:
-                if not exists:
-                    f.write("date,amount,level\n")
-                f.write(f"{now.isoformat()},{amount},{level}\n")
-        except KeyError:
-            raise Exception('could not find amount, stopping here')
+        # Checking threshold
+        checkThreshold(pool, report)
+
+        # Saving last 5 reports
+        lastReports.append(report)
+        if (len(lastReports) > 5):
+            lastReports.pop(0)
+
+        # Saving to CSV
+        if os.environ.get('DEBUG', '0') == '1':
+            print(report.date, report.amount, report.level)
+        writeIntoCsv(pool, report)
+
+        # Now sleeping
         time.sleep(int(os.environ.get('FREQUENCY', 300)))
 
 if __name__ == '__main__':
