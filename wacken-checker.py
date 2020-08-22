@@ -90,6 +90,11 @@ def monitorPool(pool: str) -> None:
         now = datetime.datetime.now()
         report = Report(date=now, amount=amount, level=level)
 
+        # Ignoring moment where the pool is closed
+        if level == "grey":
+            time.sleep(int(os.environ.get('FREQUENCY', 300)))
+            continue
+
         # Checking threshold
         checkThreshold(pool, report)
 
